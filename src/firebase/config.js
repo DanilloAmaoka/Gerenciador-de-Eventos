@@ -3,12 +3,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDcJwysgmco_tej3chhQwaORjEcLd3Q_Mk",
-  authDomain: "gerenciador-de-eventos-a1390.firebaseapp.com",
-  projectId: "gerenciador-de-eventos-a1390",
-  storageBucket: "gerenciador-de-eventos-a1390.firebasestorage.app",
-  messagingSenderId: "108809330918",
-  appId: "1:108809330918:web:2baf71482022790c605b27"
+  apiKey: "AIzaSyCssc6ZuUhu7qNdaSIkYC0jwQmH9dwfDqY",
+  authDomain: "gerenciador-de-notas-60267.firebaseapp.com",
+  projectId: "gerenciador-de-notas-60267",
+  storageBucket: "gerenciador-de-notas-60267.firebasestorage.app",
+  messagingSenderId: "821406454738",
+  appId: "1:821406454738:web:f75ca9793b2e8d4b10ae0b",
 };
 
 const app = initializeApp(firebaseConfig);

@@ -17,12 +17,12 @@ export const perguntasAjuda = [
   {
     categoria: "Custos",
     pergunta: "Como escolho o que será controlado no evento?",
-    resposta: "Na página Custos, selecione o evento e ative as áreas opcionais, como Local, Alimentação, Decoração, Equipamentos, Equipe ou Outros. Só as áreas ativas aparecem no lançamento de custos.",
+    resposta: "Na página Custos, primeiro selecione o evento. Depois, no formulário Lançar gasto, escolha a área do custo, como Local, Alimentação, Decoração, Equipamentos, Equipe ou Outros.",
   },
   {
     categoria: "Custos",
     pergunta: "Como lanço um gasto?",
-    resposta: "Em Custos, selecione uma área ativa, descreva no que foi gasto, informe valor, data, fornecedor, forma de pagamento e comprovante se houver. Depois clique em Adicionar custo.",
+    resposta: "Em Custos, selecione a área, descreva no que foi gasto, informe valor, data, fornecedor, forma de pagamento e comprovante se houver. Depois clique em Adicionar custo.",
   },
   {
     categoria: "Comprovantes",
@@ -77,7 +77,7 @@ export const perguntasAjuda = [
   {
     categoria: "Configurações",
     pergunta: "Como altero as categorias do evento?",
-    resposta: "Em Configurações, edite as linhas de categorias no formato id | nome | descrição. Essas categorias aparecem como áreas opcionais na página Custos.",
+    resposta: "Em Configurações, edite as linhas de categorias no formato id | nome | descrição. Essas categorias aparecem no campo Área do custo em Lançar gasto.",
   },
   {
     categoria: "Configurações",
@@ -115,9 +115,9 @@ export const tutoriaisPraticos = [
       },
       {
         rota: "/custos",
-        seletor: '[data-tour="custos-categorias"]',
-        titulo: "Áreas opcionais",
-        texto: "Ative apenas as áreas que fazem parte daquele evento, como local, alimentação ou decoração.",
+        seletor: '[data-tour="custos-lancar"]',
+        titulo: "Área no lançamento",
+        texto: "A área do custo é escolhida diretamente no formulário de lançamento, sem etapa extra.",
       },
       {
         rota: "/orcamento",
@@ -161,25 +161,25 @@ export const tutoriaisPraticos = [
   {
     id: "lancar-custos",
     titulo: "Lançar custos e comprovantes",
-    descricao: "Ensina a ativar áreas opcionais e registrar gastos.",
+    descricao: "Ensina a escolher evento e registrar gastos.",
     passos: [
       {
         rota: "/custos",
         seletor: '[data-tour="nav-custos"]',
         titulo: "Abra Custos",
-        texto: "É aqui que ficam detalhes, orçamento, áreas opcionais, gastos e envolvidos.",
+        texto: "É aqui que ficam lançamentos, edição de custos, comprovantes, gráfico por área e envolvidos.",
       },
       {
         rota: "/custos",
         seletor: '[data-tour="custos-evento"]',
-        titulo: "Escolha o evento",
-        texto: "Selecione o evento que receberá os custos.",
+        titulo: "Escolha pelo card do topo",
+        texto: "O card principal mostra o evento atual. Clique nele para abrir a lista e trocar o evento gerenciado.",
       },
       {
         rota: "/custos",
-        seletor: '[data-tour="custos-categorias"]',
-        titulo: "Ative áreas",
-        texto: "Selecione as áreas que serão controladas neste evento.",
+        seletor: '[data-tour="custos-lancar"]',
+        titulo: "Escolha a área do gasto",
+        texto: "No formulário principal, escolha se o custo é de local, alimentação, decoração ou outra categoria.",
       },
       {
         rota: "/custos",
@@ -190,8 +190,8 @@ export const tutoriaisPraticos = [
       {
         rota: "/custos",
         seletor: '[data-tour="custos-lista"]',
-        titulo: "Confira o extrato",
-        texto: "A tabela mostra todos os gastos, quando ocorreram e se possuem comprovante.",
+        titulo: "Abra um custo registrado",
+        texto: "Clique em um card de custo para ver detalhes, editar valor, data, área e adicionar ou abrir comprovantes.",
       },
     ],
   },
@@ -390,7 +390,7 @@ export const tutoriaisPraticos = [
         rota: "/configuracoes",
         seletor: '[data-tour="config-categorias"]',
         titulo: "Edite categorias",
-        texto: "As categorias configuradas aparecem como áreas opcionais em Custos.",
+        texto: "As categorias configuradas aparecem no campo Área do custo em Lançar gasto.",
       },
       {
         rota: "/configuracoes",

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { formatarData } from "../data/eventosData";
+import { calcularResumoEvento, formatarData, formatarMoeda, obterTemaEvento } from "../data/eventosData";
 import { useFeedback } from "../context/FeedbackContext";
 import { useSchoolData } from "../context/SchoolDataContext";
 
@@ -21,23 +21,33 @@ function estaAtrasada(tarefa) {
   return new Date(tarefa.prazo + "T23:59:59") < new Date();
 }
 
+function classeStatusTarefa(tarefa) {
+  if (estaAtrasada(tarefa)) return "overdue";
+  if (tarefa.status === "concluida") return "done";
+  if (tarefa.status === "andamento") return "doing";
+  return "pending";
+}
+
 export default function Cronograma() {
   const {
     eventosAtivos,
+    carregandoEventos,
+    eventoSelecionadoId,
+    selecionarEvento,
     adicionarTarefa,
     atualizarTarefa,
     deletarTarefa,
   } = useSchoolData();
   const { mostrarFeedback } = useFeedback();
-  const [eventoId, setEventoId] = useState("");
   const [tarefa, setTarefa] = useState(tarefaInicial);
   const [filtro, setFiltro] = useState("Todas");
   const [salvando, setSalvando] = useState(false);
 
-  const eventoSelecionado = useMemo(() => {
-    if (!eventosAtivos.length) return null;
-    return eventosAtivos.find((evento) => String(evento.id) === String(eventoId)) || eventosAtivos[0];
-  }, [eventoId, eventosAtivos]);
+  const eventoSelecionado = useMemo(
+    () => eventosAtivos.find((evento) => String(evento.id) === String(eventoSelecionadoId)) || null,
+    [eventoSelecionadoId, eventosAtivos],
+  );
+  const tema = obterTemaEvento(eventoSelecionado?.temaId);
 
   const tarefas = useMemo(() => {
     const lista = [...(eventoSelecionado?.tarefas || [])].sort(compararPrazo);
@@ -98,6 +108,22 @@ export default function Cronograma() {
     }
   }
 
+  if (carregandoEventos) {
+    return (
+      <div className="page">
+        <header className="page-header">
+          <div>
+            <span className="eyebrow">Cronograma</span>
+            <h1>Cronograma</h1>
+            <p>Carregando eventos salvos para escolher qual receberá tarefas.</p>
+          </div>
+        </header>
+
+        <section className="empty-state">Carregando eventos...</section>
+      </div>
+    );
+  }
+
   if (eventosAtivos.length === 0) {
     return (
       <div className="page">
@@ -114,21 +140,70 @@ export default function Cronograma() {
     );
   }
 
+  if (!eventoSelecionado) {
+    return (
+      <div className="page">
+        <header className="page-header">
+          <div>
+            <span className="eyebrow">Escolha necessária</span>
+            <h1>Cronograma</h1>
+            <p>Selecione o evento que vai receber tarefas. A escolha fica salva nas próximas páginas.</p>
+          </div>
+        </header>
+
+        <section className="event-picker-panel" data-tour="cronograma-evento">
+          <div>
+            <span className="pill">Primeiro passo</span>
+            <h2>Qual evento vai receber o cronograma?</h2>
+            <p>Depois de selecionar, você verá tarefas, prazos e responsáveis do evento.</p>
+          </div>
+
+          <div className="event-picker-grid">
+            {eventosAtivos.map((evento) => {
+              const temaEvento = obterTemaEvento(evento.temaId);
+              const resumoEvento = calcularResumoEvento(evento);
+
+              return (
+                <button
+                  key={evento.id}
+                  type="button"
+                  className="event-picker-card"
+                  style={{ "--event-color": temaEvento.cor, "--event-soft": temaEvento.corSuave }}
+                  onClick={() => selecionarEvento(evento.id)}
+                >
+                  <div className="event-picker-thumb" style={{ backgroundImage: evento.capaArquivo?.dados ? `url(${evento.capaArquivo.dados})` : undefined }}>
+                    {!evento.capaArquivo?.dados && evento.nome.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span>{evento.tipo}</span>
+                  <strong>{evento.nome}</strong>
+                  <small>{formatarData(evento.data)} · {formatarMoeda(resumoEvento.total)}</small>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
-    <div className="page">
+    <div
+      className="page themed-event-page"
+      style={{ "--event-color": tema.cor, "--event-strong": tema.corForte, "--event-soft": tema.corSuave }}
+    >
       <header className="page-header">
         <div>
           <span className="eyebrow">Execução</span>
           <h1>Cronograma</h1>
-          <p>Organize tarefas, responsáveis e prazos para não perder etapas importantes do evento.</p>
+          <p>Organize tarefas, responsáveis e prazos para o evento selecionado.</p>
         </div>
 
         <div className="filter-row compact">
           <label>
-            <span>Evento</span>
+            <span>Evento selecionado</span>
             <select
-              value={eventoSelecionado?.id || ""}
-              onChange={(event) => setEventoId(event.target.value)}
+              value={eventoSelecionado.id}
+              onChange={(event) => selecionarEvento(event.target.value)}
               data-tour="cronograma-evento"
             >
               {eventosAtivos.map((evento) => (
@@ -140,6 +215,18 @@ export default function Cronograma() {
           </label>
         </div>
       </header>
+
+      <section className="selected-event-hero compact-hero">
+        <div className="selected-event-cover" style={{ backgroundImage: eventoSelecionado.capaArquivo?.dados ? `url(${eventoSelecionado.capaArquivo.dados})` : undefined }}>
+          {!eventoSelecionado.capaArquivo?.dados && <span>{eventoSelecionado.nome.slice(0, 2).toUpperCase()}</span>}
+        </div>
+
+        <div>
+          <span className="pill light">{eventoSelecionado.tipo}</span>
+          <h2>{eventoSelecionado.nome}</h2>
+          <p>{formatarData(eventoSelecionado.data)} · {eventoSelecionado.responsavel || "Responsável não informado"}</p>
+        </div>
+      </section>
 
       <section className="metrics-grid" data-tour="cronograma-metricas">
         <article className="metric-card warning">
@@ -168,11 +255,12 @@ export default function Cronograma() {
       </section>
 
       <section className="content-grid two-columns narrow-left">
-        <form className="panel form-stack" onSubmit={cadastrarTarefa} data-tour="cronograma-criar">
+        <form className="panel form-stack timeline-entry-panel" onSubmit={cadastrarTarefa} data-tour="cronograma-criar">
           <div className="panel-header">
             <div>
               <span className="eyebrow">Nova etapa</span>
               <h2>Adicionar tarefa</h2>
+              <p>O item será vinculado a {eventoSelecionado.nome}.</p>
             </div>
           </div>
 
@@ -234,7 +322,7 @@ export default function Cronograma() {
             />
           </label>
 
-          <button type="submit" className="button primary full-width" disabled={salvando}>
+          <button type="submit" className="button primary large" disabled={salvando}>
             {salvando ? "Salvando..." : "Adicionar tarefa"}
           </button>
         </form>
@@ -266,7 +354,7 @@ export default function Cronograma() {
             )}
 
             {tarefas.map((item) => (
-              <article className={estaAtrasada(item) ? "timeline-item overdue" : "timeline-item"} key={item.id}>
+              <article className={"timeline-item task-" + classeStatusTarefa(item)} key={item.id}>
                 <div>
                   <span className="eyebrow">{formatarData(item.prazo)}</span>
                   <h3>{item.titulo}</h3>

@@ -46,6 +46,28 @@ export const CATEGORIAS_EVENTO = [
   },
 ];
 
+export const EVENTO_TEMAS = [
+  { id: "violeta", nome: "Violeta", cor: "#7c3aed", corForte: "#4c1d95", corSuave: "#f5f3ff" },
+  { id: "magenta", nome: "Magenta", cor: "#c026d3", corForte: "#86198f", corSuave: "#fdf4ff" },
+  { id: "indigo", nome: "Índigo", cor: "#4f46e5", corForte: "#312e81", corSuave: "#eef2ff" },
+  { id: "azul", nome: "Azul", cor: "#2563eb", corForte: "#1e3a8a", corSuave: "#eff6ff" },
+  { id: "verde", nome: "Verde", cor: "#16a34a", corForte: "#14532d", corSuave: "#f0fdf4" },
+  { id: "ambar", nome: "Âmbar", cor: "#d97706", corForte: "#78350f", corSuave: "#fffbeb" },
+  { id: "rose", nome: "Rosé", cor: "#e11d48", corForte: "#881337", corSuave: "#fff1f2" },
+];
+
+export const CATEGORIA_CORES = {
+  local: "#7c3aed",
+  alimentacao: "#16a34a",
+  decoracao: "#c026d3",
+  equipamentos: "#2563eb",
+  divulgacao: "#ea580c",
+  equipe: "#0891b2",
+  transporte: "#475569",
+  brindes: "#d97706",
+  outros: "#64748b",
+};
+
 export const TIPOS_EVENTO = [
   "Palestra",
   "Reunião",
@@ -134,6 +156,14 @@ export function hojeISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function obterTemaEvento(temaId) {
+  return EVENTO_TEMAS.find((tema) => tema.id === temaId) || EVENTO_TEMAS[0];
+}
+
+export function escolherTemaPorIndice(indice = 0) {
+  return EVENTO_TEMAS[Math.abs(Number(indice) || 0) % EVENTO_TEMAS.length];
+}
+
 export function normalizarConfiguracoesEventos(configuracoes = {}) {
   const categorias = Array.isArray(configuracoes.categorias) && configuracoes.categorias.length > 0
     ? configuracoes.categorias
@@ -148,6 +178,8 @@ export function normalizarConfiguracoesEventos(configuracoes = {}) {
 }
 
 export function criarEventoVazio(dados = {}) {
+  const tema = dados.temaId ? obterTemaEvento(dados.temaId) : escolherTemaPorIndice(Date.now());
+
   return {
     nome: String(dados.nome || "").trim(),
     tipo: dados.tipo || "Outro",
@@ -164,11 +196,17 @@ export function criarEventoVazio(dados = {}) {
     tarefas: [],
     observacoes: "",
     arquivado: false,
+    temaId: tema.id,
+    capaArquivo: dados.capaArquivo || null,
   };
 }
 
 export function obterCategoria(categoriaId, categorias = CATEGORIAS_EVENTO) {
   return categorias.find((categoria) => categoria.id === categoriaId) || CATEGORIAS_EVENTO.find((categoria) => categoria.id === "outros");
+}
+
+export function obterCorCategoria(categoriaId) {
+  return CATEGORIA_CORES[categoriaId] || CATEGORIA_CORES.outros;
 }
 
 export function obterStatusEvento(statusId) {
@@ -186,6 +224,8 @@ export function normalizarEvento(evento = {}) {
     orcamentoAtivo: Boolean(evento.orcamentoAtivo),
     status: evento.arquivado ? "arquivado" : evento.status || "planejamento",
     arquivado: Boolean(evento.arquivado || evento.status === "arquivado"),
+    temaId: evento.temaId || escolherTemaPorIndice(String(evento.id || evento.nome || "").length).id,
+    capaArquivo: evento.capaArquivo || null,
   };
 }
 

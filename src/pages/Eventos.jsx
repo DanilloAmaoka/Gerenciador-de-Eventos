@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import {
+  EVENTO_TEMAS,
   TIPOS_EVENTO,
   calcularResumoEvento,
+  escolherTemaPorIndice,
   formatarData,
   formatarMoeda,
   normalizarTexto,
   obterStatusEvento,
+  obterTemaEvento,
 } from "../data/eventosData";
 import { useFeedback } from "../context/FeedbackContext";
 import { useSchoolData } from "../context/SchoolDataContext";
@@ -42,6 +45,8 @@ const eventoInicial = {
   descricao: "",
   orcamentoAtivo: false,
   orcamento: "",
+  temaId: EVENTO_TEMAS[0].id,
+  capaArquivo: null,
 };
 
 export default function Eventos() {
@@ -52,13 +57,19 @@ export default function Eventos() {
     concluirEvento,
     arquivarEvento,
     reabrirEvento,
+    selecionarEvento,
+    eventoSelecionadoId,
   } = useSchoolData();
   const { mostrarFeedback, pedirConfirmacao } = useFeedback();
   const filtrosIniciais = useMemo(() => lerFiltrosEventos(), []);
   const [busca, setBusca] = useState(filtrosIniciais.busca);
   const [status, setStatus] = useState(filtrosIniciais.status);
   const [tipo, setTipo] = useState(filtrosIniciais.tipo);
-  const [novoEvento, setNovoEvento] = useState(eventoInicial);
+  const [novoEvento, setNovoEvento] = useState(() => ({
+    ...eventoInicial,
+    temaId: escolherTemaPorIndice(Date.now()).id,
+  }));
+  const [eventoAbertoId, setEventoAbertoId] = useState(eventoSelecionadoId || "");
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -81,6 +92,34 @@ export default function Eventos() {
   const eventosConcluidos = eventos.filter((evento) => evento.status === "concluido").length;
   const eventosArquivados = eventos.filter((evento) => evento.arquivado).length;
 
+  function processarCapa(event) {
+    const arquivo = event.target.files?.[0];
+    if (!arquivo) {
+      setNovoEvento((valorAtual) => ({ ...valorAtual, capaArquivo: null }));
+      return;
+    }
+
+    if (arquivo.size > 700000) {
+      mostrarFeedback("A imagem de capa precisa ser menor. Use uma imagem comprimida.", "erro");
+      event.target.value = "";
+      return;
+    }
+
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      setNovoEvento((valorAtual) => ({
+        ...valorAtual,
+        capaArquivo: {
+          nome: arquivo.name,
+          tipo: arquivo.type,
+          tamanho: arquivo.size,
+          dados: leitor.result,
+        },
+      }));
+    };
+    leitor.readAsDataURL(arquivo);
+  }
+
   async function cadastrarEvento(event) {
     event.preventDefault();
 
@@ -92,10 +131,14 @@ export default function Eventos() {
     try {
       setSalvando(true);
       const eventoCriado = await adicionarEvento(novoEvento);
-      setNovoEvento(eventoInicial);
-      mostrarFeedback("Evento criado vazio. Agora selecione as partes que deseja detalhar.");
+      setNovoEvento({
+        ...eventoInicial,
+        temaId: escolherTemaPorIndice(eventos.length + 1).id,
+      });
+      setEventoAbertoId(eventoCriado.id);
+      selecionarEvento(eventoCriado.id);
+      mostrarFeedback("Evento criado. Clique no card para ver ações e detalhes.");
 
-      window.history.replaceState(null, "", "/eventos");
       window.setTimeout(() => {
         const card = document.querySelector(`[data-event-card="${eventoCriado.id}"]`);
         card?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -105,6 +148,12 @@ export default function Eventos() {
     } finally {
       setSalvando(false);
     }
+  }
+
+  function abrirEvento(evento) {
+    const jaAberto = eventoAbertoId === evento.id;
+    setEventoAbertoId(jaAberto ? "" : evento.id);
+    selecionarEvento(evento.id);
   }
 
   async function concluir(evento) {
@@ -158,8 +207,8 @@ export default function Eventos() {
           <span className="eyebrow">Cadastro</span>
           <h1>Eventos</h1>
           <p>
-            Crie eventos vazios e detalhe somente o que fizer sentido: local, alimentação,
-            decoração, envolvidos, orçamento, tarefas e custos.
+            Crie eventos com cor e capa. A lista mostra cartões destacados; as ações aparecem
+            somente quando você abre um evento.
           </p>
         </div>
       </header>
@@ -192,8 +241,8 @@ export default function Eventos() {
           <div className="panel-header">
             <div>
               <span className="eyebrow">Novo registro</span>
-              <h2>Criar evento vazio</h2>
-              <p>Depois de criar, você escolhe quais áreas serão usadas.</p>
+              <h2>Criar evento</h2>
+              <p>Defina a identidade visual agora e detalhe os custos depois.</p>
             </div>
           </div>
 
@@ -256,6 +305,45 @@ export default function Eventos() {
             />
           </label>
 
+          <label className="field-group">
+            <span>Cor de destaque</span>
+            <select
+              value={novoEvento.temaId}
+              onChange={(event) => setNovoEvento({ ...novoEvento, temaId: event.target.value })}
+              disabled={salvando}
+            >
+              {EVENTO_TEMAS.map((tema) => (
+                <option key={tema.id} value={tema.id}>
+                  {tema.nome}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="theme-swatch-row">
+            {EVENTO_TEMAS.map((tema) => (
+              <button
+                key={tema.id}
+                type="button"
+                className={novoEvento.temaId === tema.id ? "theme-swatch active" : "theme-swatch"}
+                style={{ background: tema.cor }}
+                aria-label={tema.nome}
+                onClick={() => setNovoEvento({ ...novoEvento, temaId: tema.id })}
+              />
+            ))}
+          </div>
+
+          <label className="field-group">
+            <span>Imagem de capa opcional</span>
+            <input type="file" accept="image/*" onChange={processarCapa} disabled={salvando} />
+          </label>
+
+          {novoEvento.capaArquivo && (
+            <div className="cover-preview" style={{ backgroundImage: `url(${novoEvento.capaArquivo.dados})` }}>
+              <span>{novoEvento.capaArquivo.nome}</span>
+            </div>
+          )}
+
           <label className="toggle-card">
             <input
               type="checkbox"
@@ -302,11 +390,12 @@ export default function Eventos() {
           </button>
         </form>
 
-        <div className="panel">
+        <div className="panel event-list-panel">
           <div className="panel-header">
             <div>
               <span className="eyebrow">Consulta</span>
               <h2>{eventosFiltrados.length} eventos encontrados</h2>
+              <p>Clique em um card para abrir ações, detalhes e atalhos.</p>
             </div>
           </div>
 
@@ -346,7 +435,7 @@ export default function Eventos() {
           {carregandoEventos ? (
             <p className="muted-text">Carregando eventos do banco...</p>
           ) : (
-            <div className="event-card-grid">
+            <div className="event-showcase-grid">
               {eventosFiltrados.length === 0 && (
                 <div className="empty-state">Nenhum evento encontrado para estes filtros.</div>
               )}
@@ -354,68 +443,100 @@ export default function Eventos() {
               {eventosFiltrados.map((evento) => {
                 const resumo = calcularResumoEvento(evento);
                 const statusEvento = obterStatusEvento(evento.status);
+                const tema = obterTemaEvento(evento.temaId);
+                const aberto = eventoAbertoId === evento.id;
+                const capa = evento.capaArquivo?.dados;
 
                 return (
-                  <article className="event-card" key={evento.id} data-event-card={evento.id}>
-                    <div className="event-card-header">
-                      <div>
+                  <article
+                    className={aberto ? "event-showcase-card open" : "event-showcase-card"}
+                    key={evento.id}
+                    data-event-card={evento.id}
+                    style={{ "--event-color": tema.cor, "--event-strong": tema.corForte, "--event-soft": tema.corSuave }}
+                    onClick={() => abrirEvento(evento)}
+                  >
+                    <div className="event-cover" style={{ backgroundImage: capa ? `url(${capa})` : undefined }}>
+                      {!capa && <span>{evento.nome.slice(0, 2).toUpperCase()}</span>}
+                    </div>
+
+                    <div className="event-showcase-main">
+                      <div className="event-showcase-title">
                         <span className={"status-badge " + statusEvento.classe}>{statusEvento.nome}</span>
                         <h3>{evento.nome}</h3>
                         <p>{evento.tipo} · {formatarData(evento.data)}</p>
                       </div>
+
                       <strong>{formatarMoeda(resumo.total)}</strong>
                     </div>
 
                     <div className="event-card-meta">
                       <span>Responsável: {evento.responsavel || "Não informado"}</span>
                       <span>Local: {evento.local || "Opcional não definido"}</span>
-                      <span>{evento.categoriasAtivas?.length || 0} áreas selecionadas</span>
-                      <span>{resumo.totalCustos} custos · {resumo.pendentesComprovante} sem comprovante</span>
+                      <span>{resumo.totalCustos} custos registrados</span>
+                      <span>{resumo.pendentesComprovante} sem comprovante</span>
                     </div>
 
-                    {resumo.orcamentoAtivo ? (
-                      <div className="budget-progress">
-                        <div>
-                          <span>Orçamento</span>
-                          <strong>{resumo.percentual}%</strong>
-                        </div>
-                        <div className="budget-bar">
-                          <span style={{ width: Math.min(100, resumo.percentual) + "%" }} />
-                        </div>
-                        <small>
-                          {resumo.restante >= 0 ? "Restam " : "Excedeu "}
-                          {formatarMoeda(Math.abs(resumo.restante))}
-                        </small>
+                    <div className="budget-progress">
+                      <div>
+                        <span>{resumo.orcamentoAtivo ? "Orçamento" : "Sem orçamento"}</span>
+                        <strong>{resumo.orcamentoAtivo ? resumo.percentual + "%" : "Livre"}</strong>
                       </div>
-                    ) : (
-                      <div className="notice-inline">Sem orçamento definido. Os custos serão acompanhados sem comparação.</div>
-                    )}
-
-                    <div className="button-row">
-                      {!evento.arquivado && (
-                        <NavLink className="button primary small" to={"/custos?evento=" + evento.id}>
-                          Abrir custos
-                        </NavLink>
-                      )}
-
-                      {!evento.arquivado && evento.status !== "concluido" && (
-                        <button type="button" className="button secondary small" onClick={() => concluir(evento)}>
-                          Concluir
-                        </button>
-                      )}
-
-                      {!evento.arquivado && (
-                        <button type="button" className="button danger small" onClick={() => arquivar(evento)}>
-                          Arquivar
-                        </button>
-                      )}
-
-                      {evento.arquivado && (
-                        <button type="button" className="button secondary small" onClick={() => reabrir(evento)}>
-                          Reabrir
-                        </button>
-                      )}
+                      <div className="budget-bar">
+                        <span style={{ width: resumo.orcamentoAtivo ? Math.min(100, resumo.percentual) + "%" : "0%" }} />
+                      </div>
+                      <small>
+                        {resumo.orcamentoAtivo
+                          ? (resumo.restante >= 0 ? "Restam " : "Excedeu ") + formatarMoeda(Math.abs(resumo.restante))
+                          : "Os custos serão acompanhados sem comparação."}
+                      </small>
                     </div>
+
+                    {aberto && (
+                      <div className="event-expanded-actions" onClick={(event) => event.stopPropagation()}>
+                        {!evento.arquivado && (
+                          <NavLink
+                            className="event-action-button primary-action"
+                            to={"/custos?evento=" + evento.id}
+                            onClick={() => selecionarEvento(evento.id)}
+                          >
+                            <span>Custos</span>
+                            <strong>Abrir custos</strong>
+                          </NavLink>
+                        )}
+
+                        {!evento.arquivado && (
+                          <NavLink
+                            className="event-action-button"
+                            to="/cronograma"
+                            onClick={() => selecionarEvento(evento.id)}
+                          >
+                            <span>Agenda</span>
+                            <strong>Cronograma</strong>
+                          </NavLink>
+                        )}
+
+                        {!evento.arquivado && evento.status !== "concluido" && (
+                          <button type="button" className="event-action-button" onClick={() => concluir(evento)}>
+                            <span>Status</span>
+                            <strong>Concluir</strong>
+                          </button>
+                        )}
+
+                        {!evento.arquivado && (
+                          <button type="button" className="event-action-button danger-action" onClick={() => arquivar(evento)}>
+                            <span>Histórico</span>
+                            <strong>Arquivar</strong>
+                          </button>
+                        )}
+
+                        {evento.arquivado && (
+                          <button type="button" className="event-action-button primary-action" onClick={() => reabrir(evento)}>
+                            <span>Edição</span>
+                            <strong>Reabrir</strong>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </article>
                 );
               })}

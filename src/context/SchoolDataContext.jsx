@@ -24,6 +24,7 @@ import { useFeedback } from "./FeedbackContext";
 const SchoolDataContext = createContext(null);
 const eventosCollection = collection(db, "eventos");
 const configuracoesEventosDoc = doc(db, "configuracoes", "eventos");
+const EVENTO_SELECIONADO_KEY = "gerenciador-eventos:evento-selecionado";
 
 function normalizarDocumentoEvento(documento) {
   return normalizarEvento({
@@ -43,7 +44,29 @@ export function SchoolDataProvider({ children }) {
   const [eventos, setEventos] = useState([]);
   const [carregandoEventos, setCarregandoEventos] = useState(true);
   const [configuracoesEventos, setConfiguracoesEventos] = useState(CONFIG_EVENTOS_PADRAO);
+  const [eventoSelecionadoId, setEventoSelecionadoId] = useState(() => {
+    try {
+      return window.localStorage.getItem(EVENTO_SELECIONADO_KEY) || "";
+    } catch {
+      return "";
+    }
+  });
   const { mostrarFeedback } = useFeedback();
+
+  const selecionarEvento = useCallback((eventoId) => {
+    const proximoId = String(eventoId || "");
+    setEventoSelecionadoId(proximoId);
+
+    try {
+      if (proximoId) {
+        window.localStorage.setItem(EVENTO_SELECIONADO_KEY, proximoId);
+      } else {
+        window.localStorage.removeItem(EVENTO_SELECIONADO_KEY);
+      }
+    } catch {
+      // A selecao continua na sessao mesmo se o navegador bloquear localStorage.
+    }
+  }, []);
 
   const carregarEventos = useCallback(async () => {
     setCarregandoEventos(true);
@@ -94,6 +117,7 @@ export function SchoolDataProvider({ children }) {
     });
 
     setEventos((listaAtual) => [...listaAtual, eventoCriado].sort((a, b) => String(a.data || "").localeCompare(String(b.data || ""))));
+    selecionarEvento(eventoCriado.id);
 
     return eventoCriado;
   }
@@ -185,6 +209,14 @@ export function SchoolDataProvider({ children }) {
     }));
   }
 
+  async function atualizarEnvolvido(eventoId, envolvidoId, alteracoes) {
+    return atualizarEventoPorFuncao(eventoId, (evento) => ({
+      envolvidos: (evento.envolvidos || []).map((envolvido) =>
+        String(envolvido.id) === String(envolvidoId) ? { ...envolvido, ...alteracoes } : envolvido,
+      ),
+    }));
+  }
+
   async function removerEnvolvido(eventoId, envolvidoId) {
     return atualizarEventoPorFuncao(eventoId, (evento) => ({
       envolvidos: (evento.envolvidos || []).filter((envolvido) => String(envolvido.id) !== String(envolvidoId)),
@@ -271,17 +303,25 @@ export function SchoolDataProvider({ children }) {
     [eventos],
   );
 
+  const eventoSelecionado = useMemo(
+    () => eventos.find((evento) => String(evento.id) === String(eventoSelecionadoId)) || null,
+    [eventoSelecionadoId, eventos],
+  );
+
   const valor = useMemo(
     () => ({
       eventos,
       eventosAtivos,
       eventosArquivados,
+      eventoSelecionado,
+      eventoSelecionadoId,
       carregandoEventos,
       configuracoesEventos,
       periodoAtual: new Date().getFullYear(),
       anoLetivoAtual: new Date().getFullYear(),
       carregarEventos,
       carregarConfiguracoesEventos,
+      selecionarEvento,
       adicionarEvento,
       salvarEvento,
       deletarEvento,
@@ -290,6 +330,7 @@ export function SchoolDataProvider({ children }) {
       atualizarCusto,
       deletarCusto,
       adicionarEnvolvido,
+      atualizarEnvolvido,
       removerEnvolvido,
       adicionarTarefa,
       atualizarTarefa,
@@ -299,7 +340,18 @@ export function SchoolDataProvider({ children }) {
       reabrirEvento,
       salvarConfiguracoesEventos,
     }),
-    [carregandoEventos, configuracoesEventos, eventos, eventosArquivados, eventosAtivos, carregarEventos, carregarConfiguracoesEventos],
+    [
+      carregandoEventos,
+      configuracoesEventos,
+      eventos,
+      eventosArquivados,
+      eventosAtivos,
+      eventoSelecionado,
+      eventoSelecionadoId,
+      carregarEventos,
+      carregarConfiguracoesEventos,
+      selecionarEvento,
+    ],
   );
 
   return <SchoolDataContext.Provider value={valor}>{children}</SchoolDataContext.Provider>;
